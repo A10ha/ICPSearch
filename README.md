@@ -1,4 +1,5 @@
 # ICPSearch
+![image](https://github.com/A10ha/ICPSearch/assets/60035496/aac89a45-388a-4ba7-8228-89cad1854470)
 
 **Domain Lookup Tool** 是一个基于Rust编写的命令行工具，主要用于查找并获取网站域名的ICP备案信息。
 
@@ -9,12 +10,15 @@
    ```bash
    ICPSearch.exe -d yourdomain.com
    ```
+![image](https://github.com/A10ha/ICPSearch/assets/60035496/ab51e053-fc2c-4736-9ddc-a59fa87ae734)
 
 2. 批量处理多个域名和企业名（全称）。你可以在文本文件中列出需要查找的多个域名或者企业名（全称），然后通过该工具一次性处理这些域名和企业名（全称），并获取相应的备案信息。
 
    ```bash
    ICPSearch.exe -f domains.txt
    ```
+![image](https://github.com/A10ha/ICPSearch/assets/60035496/b4237cf1-af88-40cf-9b42-e96d23ee6e37)
+![image](https://github.com/A10ha/ICPSearch/assets/60035496/f83b1206-4da1-43fd-9109-a6e3361fc7f6)
 
 ## 数据输出
 
