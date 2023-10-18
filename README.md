@@ -1,7 +1,7 @@
 # ICPSearch
 ![image](https://github.com/A10ha/ICPSearch/assets/60035496/aac89a45-388a-4ba7-8228-89cad1854470)
 
-**Domain Lookup Tool** 是一个基于Rust编写的命令行工具，主要用于查找并获取网站域名的ICP备案信息。
+**ICP Lookup Tool** 是一个基于Rust编写的命令行工具，主要用于查找并获取网站域名的ICP备案信息。
 
 ## 项目功能
 
