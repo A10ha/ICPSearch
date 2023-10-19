@@ -15,7 +15,6 @@ struct DomainResult {
     unit: String,
     type_: String,
     icp_code: String,
-    name: String,
     domain: String,
     pass_time: String,
 }
@@ -90,12 +89,11 @@ fn process_domain_result(data_in_row: &Vec<String>, file: &mut File) {
         unit: data_in_row[1].clone(),
         type_: data_in_row[2].clone(),
         icp_code: data_in_row[3].clone(),
-        name: if data_in_row.len() == 9 { data_in_row[4].clone() } else { "".to_string() },
-        domain: if data_in_row.len() == 9 { data_in_row[5].clone() } else { data_in_row[4].clone() },
-        pass_time: if data_in_row.len() == 9 { data_in_row[6].clone() } else { data_in_row[5].clone() },
+        domain: data_in_row[data_in_row.len() - 4].clone() ,
+        pass_time: data_in_row[data_in_row.len() - 3].clone(),
     };
 
-    let output = format!("[Unit]: {} [Type]: {} [icpCode]: {} [Name]: {} [Domain]: {} [passTime]: {}", &result.unit, &result.type_, &result.icp_code, &result.name, &result.domain, &result.pass_time);
+    let output = format!("[Unit]: {} [Type]: {} [icpCode]: {} [Domain]: {} [passTime]: {}", &result.unit, &result.type_, &result.icp_code, &result.domain, &result.pass_time);
 
     println!("{}", output);
 
@@ -118,7 +116,8 @@ fn handle_data_xpath(data: &str) {
 
     for tr in selections {
         let data_in_row: Vec<_> = tr.text_contents().split_whitespace().map(|s| s.to_owned()).collect();
-        if data_in_row.len() == 8 || data_in_row.len() == 9 {
+        // println!("{:?}", data_in_row);
+        if !data_in_row.is_empty() {
             process_domain_result(&data_in_row, &mut file);
         } else {
             println!("IPC filing query failed! Skipping!");
