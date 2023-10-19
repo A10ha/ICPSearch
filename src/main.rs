@@ -4,12 +4,16 @@ use std::path::Path;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::str::from_utf8;
+use std::collections::HashSet;
 
 use reqwest::Client;
 use clap::{Arg, AppSettings, App};
 use tokio::runtime;
 use futures::stream::{self, StreamExt};
 use kuchiki::traits::*;
+use url::Url;
+use psl::{List, Psl};
 
 struct DomainResult {
     unit: String,
@@ -57,10 +61,33 @@ fn main() {
     }
 }
 
-fn build_url_xpath(domain: &str) -> String {
+fn get_root_domain(input: &str) -> Option<String> {
+    let domain_str = if input.starts_with("http://") || input.starts_with("https://") {
+        input.to_string()
+    } else {
+        format!("http://{}", input)
+    };
+    
+    let parsed_url = Url::parse(&domain_str).ok()?;
+    let host = parsed_url.host_str()?;
+
+    let list = List;
+    let suffix = list.suffix(host.as_bytes())?;
+
+    let suffix_byte = suffix.as_bytes();
+    let suffix_str = from_utf8(suffix_byte).unwrap();
+
+    let domain = host.trim_end_matches(suffix_str).trim_end_matches('.');
+    let parts: Vec<&str> = domain.rsplitn(2, '.').collect();
+
+    parts.first().map(|last| format!("{}.{}", last, suffix_str))
+}
+
+fn build_url_xpath(input: &str) -> String {
+    let root_domain = get_root_domain(input).expect("Failed to get root domain");
     format!(
         "https://www.beianx.cn/search/{}",
-        domain
+        root_domain
     )
 }
 
@@ -117,7 +144,7 @@ fn handle_data_xpath(data: &str) {
     for tr in selections {
         let data_in_row: Vec<_> = tr.text_contents().split_whitespace().map(|s| s.to_owned()).collect();
         // println!("{:?}", data_in_row);
-        if !data_in_row.is_empty() {
+        if data_in_row.len() >= 8 {
             process_domain_result(&data_in_row, &mut file);
         } else {
             println!("IPC filing query failed! Skipping!");
@@ -128,15 +155,18 @@ fn handle_data_xpath(data: &str) {
 
 async fn process_file(filename: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
     let path = Path::new(filename);
-    let file = File::open(&path)?;
+    let file = File::open(path)?;
     let reader = io::BufReader::new(file);
 
     let urls: Vec<String> = reader.lines()
-        .filter_map(|line| line.ok())
+        .map_while(Result::ok)
         .map(|line| build_url_xpath(&line))
         .collect();
 
-    let fetches = urls.iter()
+    let unique_urls: HashSet<String> = urls.into_iter().collect();
+    let urls_set: Vec<String> = unique_urls.into_iter().collect();
+
+    let fetches = urls_set.iter()
         .map(|url| fetch_and_handle_data_xpath(url));
 
     stream::iter(fetches)
