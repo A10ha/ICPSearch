@@ -28,19 +28,19 @@ fn main() {
     let matches = App::new("ICP Lookup Tool")
         .setting(AppSettings::ArgRequiredElseHelp)
         .author("Author: Bob ;(")
-        .about("Tool for querying ICP filings by domain name or company name")
+        .about("Tool for querying ICP filings by domain name or company name or url")
         .arg(Arg::with_name("domain")
             .short('d')
             .long("domain")
             .value_name("DOMAIN")
             .takes_value(true)
-            .help("Domain name Or Company name to lookup"))
+            .help("Domain name Or Company name Or URL to lookup"))
         .arg(Arg::with_name("file")
             .short('f')
             .long("file")
             .value_name("FILE")
             .takes_value(true)
-            .help("A file containing the domain or business name to be found"))
+            .help("A file containing the domain or business name or url to be found"))
         .get_matches();
 
     let runtime = runtime::Runtime::new().unwrap();
@@ -83,11 +83,23 @@ fn get_root_domain(input: &str) -> Option<String> {
     parts.first().map(|last| format!("{}.{}", last, suffix_str))
 }
 
+fn contains_chinese(s: &str) -> bool {
+    for ch in s.chars() {
+        if !ch.is_ascii() {
+            return true;
+        }
+    }
+    false
+}
+
 fn build_url_xpath(input: &str) -> String {
-    let root_domain = get_root_domain(input).expect("Failed to get root domain");
+    let index =  if !contains_chinese(input) {get_root_domain(input).expect("Failed to get root domain")
+    } else {
+        input.to_string()
+    };
     format!(
         "https://www.beianx.cn/search/{}",
-        root_domain
+        index
     )
 }
 
