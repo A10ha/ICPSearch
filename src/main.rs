@@ -57,7 +57,7 @@ fn main() {
             Err(err) => println!("Error: {}", err)
         };
     } else {
-        println!("Invalid option.");
+        eprintln!("Invalid option.");
     }
 }
 
@@ -147,7 +147,7 @@ fn handle_data_xpath(data: &str) {
         if data_in_row.len() >= 8 {
             process_domain_result(&data_in_row, &mut file);
         } else {
-            println!("IPC filing query failed! Skipping!");
+            eprintln!("[Error] IPC filing query failed! Skipping!");
 
         }
     }
@@ -171,7 +171,12 @@ async fn process_file(filename: &str) -> Result<(), Box<dyn Error + Send + Sync>
 
     stream::iter(fetches)
         .buffer_unordered(50)
-        .for_each(|_| async { })
+        .for_each(|result| async { 
+            if let Err(e) = result {
+                // 打印错误信息
+                println!("Error: {}", e);
+            }
+        })
         .await;
 
     Ok(())
