@@ -1,87 +1,80 @@
-name: Deploy
-
+name: build
 on:
   push:
     tags:
-      - 'v*.*.*'  # Trigger on tags like v1.0.0
-
-permissions:
-  contents: write
-
+      - 'v*.*'  # Trigger on tags like v1.0
 jobs:
-  build-and-upload:
-    name: Build and upload
+  build:
+    name: build
     runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
+        build: [linux, macos, windows]
         include:
           - build: linux
-            os: ubuntu-latest
+            os: ubuntu-18.04
+            rust: nightly
             target: x86_64-unknown-linux-musl
-          - build: linux
-            os: ubuntu-latest
-            target: aarch64-unknown-linux-musl
           - build: macos
             os: macos-latest
+            rust: nightly
             target: x86_64-apple-darwin
-          - build: macos
-            os: macos-latest
-            target: aarch64-apple-darwin
           - build: windows
-            os: windows-latest
+            os: windows-2019
+            rust: nightly-x86_64-msvc
             target: x86_64-pc-windows-msvc
+      fail-fast: false
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
+      - name: Extract version from tag
+        id: extract_version
+        run: echo "::set-output name=version::${GITHUB_REF#refs/tags/v}"
 
-      - name: Get the release version from the tag
-        shell: bash
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
-      - name: Get the project name
-        shell: bash
-        run: echo "PROJECT_NAME=$(cargo read-manifest | jq -r .name)" >> $GITHUB_ENV
+      - name: Set environment variables
+        run: |
+          echo "PROJECT_NAME=icpsearch" >> $GITHUB_ENV
+          echo "ARCHIVE_NAME_LINUX=${{ env.PROJECT_NAME }}-linux-${{ steps.extract_version.outputs.version }}.tar.gz" >> $GITHUB_ENV
+          echo "ARCHIVE_NAME_MACOS=${{ env.PROJECT_NAME }}-macos-${{ steps.extract_version.outputs.version }}.tar.gz" >> $GITHUB_ENV
+          echo "ARCHIVE_NAME_WINDOWS=${{ env.PROJECT_NAME }}-windows-${{ steps.extract_version.outputs.version }}.7z" >> $GITHUB_ENV
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rs/toolchain@v1
         with:
-          targets: ${{ matrix.target }}
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
 
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --verbose --release --target ${{ matrix.target }}
+      - name: Build binary
+        run: cargo build --verbose --release --target ${{ matrix.target }}
+        env:
+          RUST_BACKTRACE: 1
+
+      - name: Strip binary (linux and macos)
+        if: matrix.build == 'linux' || matrix.build == 'macos'
+        run: strip "target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}"
 
       - name: Build archive
         shell: bash
         run: |
-          binary_name="${{ env.PROJECT_NAME }}-${{ env.VERSION }}"
-          dirname="$binary_name-${{ matrix.target }}"
-          mkdir "$dirname"
-
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            mv "target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}.exe" "$dirname"
+          mkdir archive
+          cp LICENSE README.md archive/
+          cd archive
+          if [ "${{ matrix.build }}" = "windows" ]; then
+            cp "../target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}.exe" ./
+            7z a "${{ env.ARCHIVE_NAME_WINDOWS }}" LICENSE README.md ${{ env.PROJECT_NAME }}.exe
+          elif [ "${{ matrix.build }}" = "linux" ]; then
+            cp "../target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}" ./
+            tar -czf "${{ env.ARCHIVE_NAME_LINUX }}" LICENSE README.md ${{ env.PROJECT_NAME }}
           else
-            mv "target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}" "$dirname"
+            cp "../target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}" ./
+            tar -czf "${{ env.ARCHIVE_NAME_MACOS }}" LICENSE README.md ${{ env.PROJECT_NAME }}
           fi
-
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            7z a "$dirname.zip" "$dirname"
-            echo "ASSET=$dirname.zip" >> $GITHUB_ENV
-          else
-            tar -czf "$dirname.tar.gz" "$dirname"
-            echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
-          fi
-
-      - name: Release
-        uses: softprops/action-gh-release@v1
+      - name: Upload archive
+        uses: actions/upload-artifact@v1
         with:
-          files: |
-            ${{ env.ASSET }}
+          name: ${{ env.ARCHIVE_NAME_${{ matrix.build | upcase }} }}
+          path: archive/${{ env.ARCHIVE_NAME_${{ matrix.build | upcase }} }}
