@@ -1,4 +1,4 @@
-# .github/workflows/deploy.yml
+# .github/workflows/rust.yml
 
 on:
   push:
