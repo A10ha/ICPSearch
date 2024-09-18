@@ -2,7 +2,7 @@ name: build
 on:
   push:
     tags:
-      - 'v*.*'  # Trigger on tags like v1.0
+      - 'v*.*'
 jobs:
   build:
     name: build
@@ -15,30 +15,30 @@ jobs:
             os: ubuntu-18.04
             rust: nightly
             target: x86_64-unknown-linux-musl
+            archive-name: icpsearch-linux.tar.gz
           - build: macos
             os: macos-latest
             rust: nightly
             target: x86_64-apple-darwin
+            archive-name: icpsearch-macos.tar.gz
           - build: windows
             os: windows-2019
             rust: nightly-x86_64-msvc
             target: x86_64-pc-windows-msvc
+            archive-name: icpsearch-windows.7z
       fail-fast: false
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # 确保获取所有历史记录以获取 tag
 
-      - name: Extract version from tag
-        id: extract_version
-        run: echo "::set-output name=version::${GITHUB_REF#refs/tags/v}"
-
-      - name: Set environment variables
+      - name: Get version from tag
+        id: get_version
         run: |
-          echo "PROJECT_NAME=icpsearch" >> $GITHUB_ENV
-          echo "ARCHIVE_NAME_LINUX=${{ env.PROJECT_NAME }}-linux-${{ steps.extract_version.outputs.version }}.tar.gz" >> $GITHUB_ENV
-          echo "ARCHIVE_NAME_MACOS=${{ env.PROJECT_NAME }}-macos-${{ steps.extract_version.outputs.version }}.tar.gz" >> $GITHUB_ENV
-          echo "ARCHIVE_NAME_WINDOWS=${{ env.PROJECT_NAME }}-windows-${{ steps.extract_version.outputs.version }}.7z" >> $GITHUB_ENV
+          TAG=$(git describe --tags --abbrev=0)
+          echo "::set-output name=version::$TAG"
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -55,7 +55,7 @@ jobs:
 
       - name: Strip binary (linux and macos)
         if: matrix.build == 'linux' || matrix.build == 'macos'
-        run: strip "target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}"
+        run: strip "target/${{ matrix.target }}/release/icpsearch"
 
       - name: Build archive
         shell: bash
@@ -64,17 +64,17 @@ jobs:
           cp LICENSE README.md archive/
           cd archive
           if [ "${{ matrix.build }}" = "windows" ]; then
-            cp "../target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}.exe" ./
-            7z a "${{ env.ARCHIVE_NAME_WINDOWS }}" LICENSE README.md ${{ env.PROJECT_NAME }}.exe
-          elif [ "${{ matrix.build }}" = "linux" ]; then
-            cp "../target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}" ./
-            tar -czf "${{ env.ARCHIVE_NAME_LINUX }}" LICENSE README.md ${{ env.PROJECT_NAME }}
+            cp "../target/${{ matrix.target }}/release/icpsearch.exe" ./
+            7z a "${{ matrix.archive-name }}" LICENSE README.md icpsearch.exe
           else
-            cp "../target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}" ./
-            tar -czf "${{ env.ARCHIVE_NAME_MACOS }}" LICENSE README.md ${{ env.PROJECT_NAME }}
+            cp "../target/${{ matrix.target }}/release/icpsearch" ./
+            tar -czf "${{ matrix.archive-name }}" LICENSE README.md icpsearch
           fi
+          # 添加版本号到归档文件名
+          mv "${{ matrix.archive-name }}" "${{ matrix.archive-name }}-${{ steps.get_version.outputs.version }}"
+
       - name: Upload archive
         uses: actions/upload-artifact@v1
         with:
-          name: ${{ env.ARCHIVE_NAME_${{ matrix.build | upcase }} }}
-          path: archive/${{ env.ARCHIVE_NAME_${{ matrix.build | upcase }} }}
+          name: ${{ matrix.archive-name }}-${{ steps.get_version.outputs.version }}
+          path: archive/${{ matrix.archive-name }}-${{ steps.get_version.outputs.version }}
