@@ -1,9 +1,11 @@
-# .github/workflows/rust.yml
+# .github/workflows/release.yml
 
 on:
   push:
     tags:
       - 'v*.*.*'  # 匹配以 'v' 开头的版本号，例如 v1.0.0
+  release:
+    types: [created]
 
 jobs:
   release:
