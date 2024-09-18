@@ -1,80 +1,38 @@
-name: build
+# .github/workflows/release.yml
+
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*.*.*'  # 匹配以 'v' 开头的版本号，例如 v1.0.0
+
 jobs:
-  build:
-    name: build
-    runs-on: ${{ matrix.os }}
+  release:
+    name: release ${{ matrix.target }}
+    runs-on: ubuntu-latest
     strategy:
-      matrix:
-        build: [linux, macos, windows]
-        include:
-          - build: linux
-            os: ubuntu-18.04
-            rust: nightly
-            target: x86_64-unknown-linux-musl
-            archive-name: icpsearch-linux.tar.gz
-          - build: macos
-            os: macos-latest
-            rust: nightly
-            target: x86_64-apple-darwin
-            archive-name: icpsearch-macos.tar.gz
-          - build: windows
-            os: windows-2019
-            rust: nightly-x86_64-msvc
-            target: x86_64-pc-windows-msvc
-            archive-name: icpsearch-windows.7z
       fail-fast: false
-
+      matrix:
+        include:
+          - target: x86_64-pc-windows-gnu
+            archive: zip
+          - target: x86_64-unknown-linux-musl
+            archive: tar.gz tar.xz tar.zst
+          - target: x86_64-apple-darwin
+            archive: zip
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0  # 确保获取所有历史记录以获取 tag
-
+      - uses: actions/checkout@master
+      
+      # 获取版本号
       - name: Get version from tag
         id: get_version
-        run: |
-          TAG=$(git describe --tags --abbrev=0)
-          echo "::set-output name=version::$TAG"
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          profile: minimal
-          override: true
-          target: ${{ matrix.target }}
-
-      - name: Build binary
-        run: cargo build --verbose --release --target ${{ matrix.target }}
+        run: echo "::set-output name=version::${GITHUB_REF#refs/tags/}"
+      
+      - name: Compile and release
+        uses: rust-build/rust-build.action@v1.4.5
         env:
-          RUST_BACKTRACE: 1
-
-      - name: Strip binary (linux and macos)
-        if: matrix.build == 'linux' || matrix.build == 'macos'
-        run: strip "target/${{ matrix.target }}/release/icpsearch"
-
-      - name: Build archive
-        shell: bash
-        run: |
-          mkdir archive
-          cp LICENSE README.md archive/
-          cd archive
-          if [ "${{ matrix.build }}" = "windows" ]; then
-            cp "../target/${{ matrix.target }}/release/icpsearch.exe" ./
-            7z a "${{ matrix.archive-name }}" LICENSE README.md icpsearch.exe
-          else
-            cp "../target/${{ matrix.target }}/release/icpsearch" ./
-            tar -czf "${{ matrix.archive-name }}" LICENSE README.md icpsearch
-          fi
-          # 添加版本号到归档文件名
-          mv "${{ matrix.archive-name }}" "${{ matrix.archive-name }}-${{ steps.get_version.outputs.version }}"
-
-      - name: Upload archive
-        uses: actions/upload-artifact@v1
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: ${{ matrix.archive-name }}-${{ steps.get_version.outputs.version }}
-          path: archive/${{ matrix.archive-name }}-${{ steps.get_version.outputs.version }}
+          RUSTTARGET: ${{ matrix.target }}
+          ARCHIVE_TYPES: ${{ matrix.archive }}
+          # 使用版本号作为归档文件名的一部分
+          ARCHIVE_NAME: my-project-${{ steps.get_version.outputs.version }}-${{ matrix.target }}
