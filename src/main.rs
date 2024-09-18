@@ -28,7 +28,7 @@ fn main() {
     create_file_if_not_exists("result.txt");
     let matches = App::new("ICP Lookup Tool")
         .setting(AppSettings::ArgRequiredElseHelp)
-        .author("Author: Bob ;(")
+        .author("Author: A10ha")
         .about("Tool for querying ICP filings by domain name or company name or url")
         .arg(Arg::with_name("domain")
             .short('d')
