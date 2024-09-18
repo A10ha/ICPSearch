@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
@@ -47,6 +48,7 @@ fn main() {
 
     if let Some(domain) = matches.value_of("domain") {
         let url = build_url_xpath(domain);
+        // println!("{}", url);
         match runtime.block_on(fetch_and_handle_data_xpath(&url)) {
             Ok(_) => println!("Data processing completed."),
             Err(err) => println!("Error: {}", err)
@@ -59,6 +61,30 @@ fn main() {
     } else {
         eprintln!("Invalid option.");
     }
+}
+
+
+fn get_uuid() -> String {
+    let uuid_template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+    let mut uuid = String::new();
+    for c in uuid_template.chars() {
+        let v = match c {
+            'x' => rand::random::<u32>() % 16,
+            'y' => ((rand::random::<u32>() % 16) & 0x3) | 0x8,
+            '4' => 4,
+            '-' => u32::MAX, // 使用一个特殊值表示连字符
+            _ => {
+                assert!(false, "Unexpected character in UUID template: {}", c);
+                0 // 这个值不会被使用，因为 assert! 会 panic
+            }
+        };
+        if v == u32::MAX {
+            uuid.push('-');
+        } else {
+            uuid.push_str(&format!("{:x}", v));
+        }
+    }
+    uuid
 }
 
 fn get_root_domain(input: &str) -> Option<String> {
@@ -110,8 +136,10 @@ async fn fetch_and_handle_data_xpath(url: &str) -> Result<(), Box<dyn Error + Se
 }
 
 async fn fetch_data(url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let uuid = get_uuid();
+    let cookie_str = format!("machine_str={}", uuid);
     let client = Client::new();
-    let response = client.get(url).send().await?;
+    let response = client.get(url).header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36").header("Cookie", cookie_str).send().await?;
     let body = response.text().await?;
     Ok(body)
 }
