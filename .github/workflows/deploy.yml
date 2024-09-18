@@ -1,6 +1,9 @@
 name: Deploy
 
-on: push
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on tags like v1.0.0
 
 permissions:
   contents: write
@@ -12,30 +15,41 @@ jobs:
 
     strategy:
       matrix:
-        # You can add more, for any target you'd like!
         include:
           - build: linux
             os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-
+          - build: linux
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
           - build: macos
             os: macos-latest
             target: x86_64-apple-darwin
+          - build: macos
+            os: macos-latest
+            target: aarch64-apple-darwin
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
       - name: Get the release version from the tag
         shell: bash
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
+      - name: Get the project name
+        shell: bash
+        run: echo "PROJECT_NAME=$(cargo read-manifest | jq -r .name)" >> $GITHUB_ENV
+
       - name: Install Rust
-        # Or @nightly if you want
         uses: dtolnay/rust-toolchain@stable
-        # Arguments to pass in
         with:
-          # Make Rust compile to our target (defined in the matrix)
           targets: ${{ matrix.target }}
 
       - name: Build
@@ -48,15 +62,14 @@ jobs:
       - name: Build archive
         shell: bash
         run: |
-          # Replace with the name of your binary
-          binary_name="<BINARY_NAME>"
-
-          dirname="$binary_name-${{ env.VERSION }}-${{ matrix.target }}"
+          binary_name="${{ env.PROJECT_NAME }}-${{ env.VERSION }}"
+          dirname="$binary_name-${{ matrix.target }}"
           mkdir "$dirname"
+
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            mv "target/${{ matrix.target }}/release/$binary_name.exe" "$dirname"
+            mv "target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}.exe" "$dirname"
           else
-            mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
+            mv "target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }}" "$dirname"
           fi
 
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
