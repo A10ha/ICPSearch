@@ -26,6 +26,8 @@
    ./ICPSearch -e <input.xlsx> -c <Column_name>
    ```
 
+![image-20250310155141048](./README.assets/image-20250310155141048.png)
+
 ## 数据输出（默认）
 
 所有的结果将会被打印到console，同时写入到名为result.txt的文件中。
