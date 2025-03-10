@@ -16,3 +16,13 @@ kuchiki = "0.8.1"
 url = "2.4.1"
 psl = "2.1.4"
 rand = "0.8.5"
+ahash = "0.8.7"
+calamine = "0.19"
+rust_xlsxwriter = "0.40"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+debug = false
+panic = "abort"
