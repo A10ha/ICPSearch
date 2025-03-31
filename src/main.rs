@@ -254,6 +254,7 @@ fn contains_chinese(s: &str) -> bool {
 }
 
 fn build_url_xpath(input: &str) -> String {
+    let input = input.trim();
     let index =  if !contains_chinese(input) {get_root_domain(input).expect("Failed to get root domain")
     } else {
         input.to_string()
@@ -334,6 +335,7 @@ async fn process_file(filename: &str) -> Result<(), Box<dyn Error + Send + Sync>
 
     let urls: Vec<String> = reader.lines()
         .map_while(Result::ok)
+        .filter(|line| !line.is_empty())
         .map(|line| build_url_xpath(&line))
         .collect();
 
